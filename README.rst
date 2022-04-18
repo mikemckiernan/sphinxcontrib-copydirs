@@ -25,16 +25,12 @@ content can be build.
    copydirs_file_rename = {
        "README.rst": "index.rst",                  # 2
    }
-   copydirs_search_suffix = [".png"]               # 3
 
 
 1. Specify the directories to copy as relative to the Sphinx source directory.
    You can also specify individual files.
 2. If a file with the key is found, ``README.rst``, the file is renamed to the
    value, ``index.rst``, as the extension copies it.
-3. If the directory to copy has subdirectories for files like images, then
-   copy the files that match the suffix and their directories to the Sphinx
-   build output directory. The default value is ``[ ".png", ".tif", ".jpg", ".svg"]``.
 
 Links
 -----
