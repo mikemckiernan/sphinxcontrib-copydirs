@@ -4,6 +4,15 @@ import shutil
 import logging
 
 from pathlib import Path
+from typing import cast
+
+from sphinx.application import Sphinx
+from sphinx.environment import BuildEnvironment
+from sphinx.addnodes import pending_xref
+from sphinx.util.nodes import make_refnode
+from sphinx.domains.std import StandardDomain
+from docutils import nodes
+from docutils.nodes import inline
 
 level = logging.DEBUG if os.environ.get("DEBUG") else logging.INFO
 logging.basicConfig(level=level)
@@ -38,7 +47,7 @@ def copy_additional_directories(app, _):
         if not os.path.exists(src_path):
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), src_path)
         base_path = os.path.commonpath([app.outdir, src_path])
-        if app.config.smv_metadata:
+        if "smv_metadata" in app.config:
             base_path = app.config.smv_metadata[app.config.smv_current_version][
                 "basedir"
             ]
@@ -62,64 +71,22 @@ def copy_additional_directories(app, _):
             shutil.copyfile(src_path, out_path)
 
 
-# The cwd when this runs is the root of the repo.
-# The paths in `copydirs_additional_dirs` are relative
-# to app.srcdir (docs/source).
-# def copy_directories_to_output(app):
-#     """Copy directories and files specified in
-#     ``copydirs_additional_dirs`` to the Sphinx output.
+# If someone makes a Markdown link to a directory, like [examples](./examples/),
+# then attempt to resolve that to the target + "index.md".
+def resolve_directory_link(
+    app: Sphinx, env: BuildEnvironment, node: pending_xref, contnode: inline
+):
+    """Resolve a Markdown link to a directory, like [examples](./examples),
+    by checking for an index file in the directory.
 
-#     Only copy a file if the suffix matches
-#     ``copydirs_search_suffix``. Directories are copied
-#     if the directory contains a file with a matching
-#     suffix.
+    After a README.md file is renamed to index.md in the source tree, the
+    link should be OK.
+    """
+    refpath = os.path.dirname(node["refdoc"])
+    idx_target = os.path.join(refpath, node["reftarget"], "index")
+    idx_target = os.path.normpath(idx_target)
+    if idx_target not in env.all_docs:
+        return None
 
-#     The anticipated use is to copy directories with
-#     image files that match ``.png``, ``.jpg``, ``.tif``,
-#     or ``.svg``. You can add or subtract suffixes by
-#     setting ``copydirs_search_suffix`` to the file name
-#     suffixes you want to copy to the Sphinx output.
-#     """
-#     if not app.config.copydirs_additional_dirs:
-#         return {}
-
-#     def copy_by_suffix(src: str, dst: str):
-#         if os.path.isdir(src):
-#             return
-#         if Path(dst).suffix.lower() not in app.config.copydirs_search_suffixes:
-#             return
-#         shutil.copy2(src, dst)
-
-#     for src in app.config.copydirs_additional_dirs:
-#         # This is a value, when resolved, like ".../examples".
-#         src_path = os.path.abspath(os.path.join(app.srcdir, src))
-#         # Only copy specially-suffixed files like graphics *from directories*.
-#         if os.path.isfile(src_path):
-#             continue
-#         # Copy this directory's contents (subject to suffix), from "root/.../examples"
-#         # to "app.outdir/.../examples"
-#         # Get the common path (likely the repo), for example, from
-#         # /x/repo/docs/build/html
-#         # /x/repo/examples
-#         # /x/repo/blah/foo
-#         base_path = os.path.commonpath([app.outdir, src_path])
-#         if app.config.smv_metadata:
-#             base_path = app.config.smv_metadata[app.config.smv_current_version][
-#                 "basedir"
-#             ]
-#         logger.debug(
-#             f"copy to output, common path for output dir and additional dir: {base_path}"
-#         )
-#         out_path = os.path.relpath(src_path, base_path)
-#         out_path = os.path.join(app.outdir, out_path)
-
-#         logger.info(f"Copying files by suffix from: {src_path}")
-#         logger.info(f"  ...to destination: {out_path}")
-
-#         if not os.path.exists(out_path):
-#             raise RuntimeError(f"Output directory should already exist: {out_path}")
-#         if os.path.isdir(src_path):
-#             shutil.copytree(
-#                 src_path, out_path, copy_function=copy_by_suffix, dirs_exist_ok=True
-#             )
-#     return {}
+    fromdoc = node["refdoc"]
+    return make_refnode(app.builder, fromdoc, idx_target, None, contnode)
