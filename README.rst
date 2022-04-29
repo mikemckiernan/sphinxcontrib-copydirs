@@ -23,7 +23,7 @@ content can be build.
        "../../README.rst",
    ]
    copydirs_file_rename = {
-       "README.rst": "index.rst",                  # 2
+       "README.md": "index.md",                    # 2
    }
 
 
@@ -31,6 +31,29 @@ content can be build.
    You can also specify individual files.
 2. If a file with the key is found, ``README.rst``, the file is renamed to the
    value, ``index.rst``, as the extension copies it.
+
+In the `README.md` file, you can add Markdown-style links to subdirectories.
+For example, with the following directory structure, the following like
+in the `examples/README.md` file resolves to `examples/getting-started/index.md`.
+
+.. code-block:: markdown
+
+   ...see the [getting started](./getting-started) examples.
+
+
+.. code-block::
+
+   examples
+   ├── one-example
+   │   ├── 01-notebook.ipynb
+   │   ├── 02-notebook.ipynb
+   │   └── README.md
+   ├── getting-started
+   │   ├── 01-notebook.ipynb
+   │   ├── 02-notebook.ipynb
+   │   └── README.md
+   ├── README.md
+
 
 Links
 -----
