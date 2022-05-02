@@ -83,6 +83,8 @@ def resolve_directory_link(
     After a README.md file is renamed to index.md in the source tree, the
     link should be OK.
     """
+    if "refdoc" not in node:
+        return None
     refpath = os.path.dirname(node["refdoc"])
     idx_target = os.path.join(refpath, node["reftarget"], "index")
     idx_target = os.path.normpath(idx_target)
