@@ -47,7 +47,6 @@ def copy_additional_directories(app, _):
         if not os.path.exists(src_path):
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), src_path)
         base_path = os.path.commonpath([app.outdir, src_path])
-        print(type(app.config.values))
         if "smv_metadata" in app.config and len(app.config.smv_metadata) > 0:
             base_path = app.config.smv_metadata[app.config.smv_current_version][
                 "basedir"
