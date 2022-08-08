@@ -1,18 +1,17 @@
 import errno
+import logging
 import os
 import shutil
-import logging
-
 from pathlib import Path
 from typing import cast
 
-from sphinx.application import Sphinx
-from sphinx.environment import BuildEnvironment
-from sphinx.addnodes import pending_xref
-from sphinx.util.nodes import make_refnode
-from sphinx.domains.std import StandardDomain
 from docutils import nodes
 from docutils.nodes import inline
+from sphinx.addnodes import pending_xref
+from sphinx.application import Sphinx
+from sphinx.domains.std import StandardDomain
+from sphinx.environment import BuildEnvironment
+from sphinx.util.nodes import make_refnode
 
 level = logging.DEBUG if os.environ.get("DEBUG") else logging.INFO
 logging.basicConfig(level=level)
@@ -45,7 +44,9 @@ def copy_additional_directories(app, _):
     for src in app.config.copydirs_additional_dirs:
         src_path = os.path.abspath(os.path.join(app.srcdir, src))
         if not os.path.exists(src_path):
-            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), src_path)
+            logger.info("The file to copy does not exist, skipping: %s", src_path)
+            continue
+
         base_path = os.path.commonpath([app.outdir, src_path])
         if "smv_metadata" in app.config and len(app.config.smv_metadata) > 0:
             base_path = app.config.smv_metadata[app.config.smv_current_version][
