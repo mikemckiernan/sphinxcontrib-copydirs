@@ -1,15 +1,11 @@
-import errno
 import logging
 import os
 import shutil
 from pathlib import Path
-from typing import cast
 
-from docutils import nodes
 from docutils.nodes import inline
 from sphinx.addnodes import pending_xref
 from sphinx.application import Sphinx
-from sphinx.domains.std import StandardDomain
 from sphinx.environment import BuildEnvironment
 from sphinx.util.nodes import make_refnode
 
@@ -36,7 +32,7 @@ def copy_additional_directories(app, _):
 
     def copy_with_rename(src: str, dst: str):
         src_name = Path(src).name
-        if src_name in app.config.copydirs_file_rename.keys():
+        if app.config.copydirs_file_rename and src_name in app.config.copydirs_file_rename.keys():
             dst = Path(dst).parent / app.config.copydirs_file_rename[src_name]
             logger.debug(f"Renaming source file: {src_name} to {dst}")
         shutil.copy2(src, str(dst))
