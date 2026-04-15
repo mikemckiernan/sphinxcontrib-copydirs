@@ -61,8 +61,13 @@ def copy_additional_directories(app: Sphinx, _: Any) -> None:
         out_path = resolve_out_path(src_path, app.srcdir, app.outdir)
 
         logger.debug(
+<<<<<<< HEAD
             "copy to source, common path for output dir and additional dir: ",
             f"{os.path.commonpath([app.outdir, src_path])}",
+=======
+                f"copy to source, common path for output dir and additional dir: ",
+                f"{os.path.commonpath([app.outdir, src_path])}"
+>>>>>>> 8d91127 (chore: Refactor to modernize a bit)
         )
         logger.info(f"Copying source documentation from: {src_path}")
         logger.info(f"  ...to destination: {out_path}")
