@@ -2,6 +2,7 @@ import logging
 import os
 import shutil
 from pathlib import Path
+from typing import Any
 
 from docutils.nodes import inline
 from sphinx.addnodes import pending_xref
@@ -9,12 +10,33 @@ from sphinx.application import Sphinx
 from sphinx.environment import BuildEnvironment
 from sphinx.util.nodes import make_refnode
 
-level = logging.DEBUG if os.environ.get("DEBUG") else logging.INFO
-logging.basicConfig(level=level)
 logger = logging.getLogger(__name__)
 
+
+def copy_with_rename(src: str, dst: str, file_rename: dict[str, str] | None) -> None:
+    """Copy src to dst, renaming the file if its name appears in file_rename."""
+    src_name = Path(src).name
+    if file_rename and src_name in file_rename:
+        dst = str(Path(dst).parent / file_rename[src_name])
+        logger.debug(f"Renaming source file: {src_name} to {dst}")
+    shutil.copy2(src, str(dst))
+
+
+def resolve_out_path(src_path: str, srcdir: str, outdir: str) -> str:
+    """Return the destination path inside srcdir that mirrors src_path."""
+    base_path = os.path.commonpath([outdir, src_path])
+    return os.path.join(srcdir, os.path.relpath(src_path, base_path))
+
+
+def find_index_target(refdoc: str, reftarget: str, all_docs: dict) -> str | None:
+    """Return the normalized index path if it exists in all_docs, else None."""
+    refpath = os.path.dirname(refdoc)
+    idx = os.path.normpath(os.path.join(refpath, reftarget, "index"))
+    return idx if idx in all_docs else None
+
+
 # Paths are relative to the docs/source directory.
-def copy_additional_directories(app, _):
+def copy_additional_directories(app: Sphinx, _: Any) -> None:
     """Copy the directories specified in
     ``copydirs_additional_dirs`` from within the
     repository into the Sphinx source directory.
@@ -30,30 +52,18 @@ def copy_additional_directories(app, _):
     if not app.config.copydirs_additional_dirs:
         return
 
-    def copy_with_rename(src: str, dst: str):
-        src_name = Path(src).name
-        if app.config.copydirs_file_rename and src_name in app.config.copydirs_file_rename.keys():
-            dst = Path(dst).parent / app.config.copydirs_file_rename[src_name]
-            logger.debug(f"Renaming source file: {src_name} to {dst}")
-        shutil.copy2(src, str(dst))
-
     for src in app.config.copydirs_additional_dirs:
         src_path = os.path.abspath(os.path.join(app.srcdir, src))
         if not os.path.exists(src_path):
-            logger.info("The file to copy does not exist, skipping: %s", src_path)
+            logger.info(f"The file to copy does not exist, skipping: {src_path}")
             continue
 
-        base_path = os.path.commonpath([app.outdir, src_path])
-        if "smv_metadata" in app.config and len(app.config.smv_metadata) > 0:
-            base_path = app.config.smv_metadata[app.config.smv_current_version][
-                "basedir"
-            ]
-        logger.debug(
-            f"copy to source, common path for output dir and additional dir: {base_path}"
-        )
-        out_path = os.path.relpath(src_path, base_path)
-        out_path = os.path.join(app.srcdir, out_path)
+        out_path = resolve_out_path(src_path, app.srcdir, app.outdir)
 
+        logger.debug(
+            "copy to source, common path for output dir and additional dir: ",
+            f"{os.path.commonpath([app.outdir, src_path])}",
+        )
         logger.info(f"Copying source documentation from: {src_path}")
         logger.info(f"  ...to destination: {out_path}")
 
@@ -63,7 +73,11 @@ def copy_additional_directories(app, _):
             os.unlink(out_path)
 
         if os.path.isdir(src_path):
-            shutil.copytree(src_path, out_path, copy_function=copy_with_rename)
+            shutil.copytree(
+                src_path,
+                out_path,
+                copy_function=lambda s, d: copy_with_rename(s, d, app.config.copydirs_file_rename),
+            )
         else:
             shutil.copyfile(src_path, out_path)
 
@@ -71,8 +85,11 @@ def copy_additional_directories(app, _):
 # If someone makes a Markdown link to a directory, like [examples](./examples/),
 # then attempt to resolve that to the target + "index.md".
 def resolve_directory_link(
-    app: Sphinx, env: BuildEnvironment, node: pending_xref, contnode: inline
-):
+    app: Sphinx,
+    env: BuildEnvironment,
+    node: pending_xref,
+    contnode: inline,
+) -> inline | None:
     """Resolve a Markdown link to a directory, like [examples](./examples),
     by checking for an index file in the directory.
 
@@ -81,11 +98,7 @@ def resolve_directory_link(
     """
     if "refdoc" not in node:
         return None
-    refpath = os.path.dirname(node["refdoc"])
-    idx_target = os.path.join(refpath, node["reftarget"], "index")
-    idx_target = os.path.normpath(idx_target)
-    if idx_target not in env.all_docs:
+    idx_target = find_index_target(node["refdoc"], node["reftarget"], env.all_docs)
+    if idx_target is None:
         return None
-
-    fromdoc = node["refdoc"]
-    return make_refnode(app.builder, fromdoc, idx_target, None, contnode)
+    return make_refnode(app.builder, node["refdoc"], idx_target, None, contnode)
