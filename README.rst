@@ -55,6 +55,29 @@ in the `examples/README.md` file resolves to `examples/getting-started/index.md`
    ├── README.md
 
 
+Releasing
+---------
+
+1. Bump ``version`` in ``pyproject.toml``.
+2. Commit and merge to ``main``.
+3. Create a release from the command line::
+
+      gh release create v<version> --generate-notes
+
+   For example::
+
+      gh release create v0.4.0 --generate-notes
+
+   GitHub generates release notes automatically from pull request titles and
+   commit messages since the last release.
+
+Installing a specific release::
+
+   pip install git+https://github.com/mikemckiernan/sphinxcontrib-copydirs.git@v0.4.0
+
+   uv add git+https://github.com/mikemckiernan/sphinxcontrib-copydirs@v0.4.0
+
+
 Links
 -----
 
