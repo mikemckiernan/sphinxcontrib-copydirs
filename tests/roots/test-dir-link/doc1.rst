@@ -1,0 +1,4 @@
+Links
+=====
+
+See :doc:`examples`.
