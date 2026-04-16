@@ -1,6 +1,7 @@
 import logging
 import os
 import shutil
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,24 @@ def find_index_target(refdoc: str, reftarget: str, all_docs: dict) -> str | None
     refpath = os.path.dirname(refdoc)
     idx = os.path.normpath(os.path.join(refpath, reftarget, "index"))
     return idx if idx in all_docs else None
+
+
+def is_path_git_ignored(path: str, cwd: str) -> bool:
+    """Return True if git considers path to be ignored.
+
+    Returns True (suppressing any warning) when git is not installed
+    or cwd is not inside a git repository.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "-C", cwd, "check-ignore", "-q", path],
+            capture_output=True,
+        )
+        # 0 = ignored, 1 = not ignored, 128+ = git error/not a repo;
+        # treat any non-1 code as "no warning" to avoid false positives on git errors
+        return result.returncode != 1
+    except FileNotFoundError:
+        return True
 
 
 # Paths are relative to the docs/source directory.
@@ -80,6 +99,15 @@ def copy_additional_directories(app: Sphinx, _: Any) -> None:
             )
         else:
             shutil.copyfile(src_path, out_path)
+
+        # app.srcdir is inside the repo tree, so git walks up to find the root and
+        # all relevant .gitignore files. If srcdir were outside the repo this check
+        # would silently suppress the warning (git returns exit code 128).
+        if not is_path_git_ignored(out_path, app.srcdir):
+            logger.warning(
+                "Copied destination is not git-ignored and can be accidentally committed: %s",
+                out_path,
+            )
 
 
 # If someone makes a Markdown link to a directory, like [examples](./examples/),

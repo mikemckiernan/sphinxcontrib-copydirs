@@ -1,6 +1,15 @@
+import logging
 import os
-import pytest
-from sphinxcontrib.copydirs.copydirs import copy_with_rename, resolve_out_path, find_index_target
+import subprocess
+from unittest.mock import MagicMock, patch
+
+from sphinxcontrib.copydirs.copydirs import (
+    copy_additional_directories,
+    copy_with_rename,
+    find_index_target,
+    is_path_git_ignored,
+    resolve_out_path,
+)
 
 
 class TestCopyWithRename:
@@ -80,3 +89,116 @@ class TestFindIndexTarget:
         # normpath(join("guide", "./examples", "index")) -> "guide/examples/index"
         result = find_index_target("guide/intro", "./examples", {"guide/examples/index": 1})
         assert result == "guide/examples/index"
+
+
+class TestIsPathGitIgnored:
+    def test_returns_true_when_path_is_ignored(self, tmp_path):
+        subprocess.run(["git", "init"], cwd=str(tmp_path), check=True, capture_output=True)
+        (tmp_path / ".gitignore").write_text("examples/\n")
+        examples = tmp_path / "examples"
+        examples.mkdir()
+        assert is_path_git_ignored(str(examples), str(tmp_path)) is True
+
+    def test_returns_false_when_path_is_not_ignored(self, tmp_path):
+        subprocess.run(["git", "init"], cwd=str(tmp_path), check=True, capture_output=True)
+        (tmp_path / ".gitignore").write_text("# nothing here\n")
+        examples = tmp_path / "examples"
+        examples.mkdir()
+        assert is_path_git_ignored(str(examples), str(tmp_path)) is False
+
+    def test_returns_false_when_no_gitignore(self, tmp_path):
+        subprocess.run(["git", "init"], cwd=str(tmp_path), check=True, capture_output=True)
+        examples = tmp_path / "examples"
+        examples.mkdir()
+        assert is_path_git_ignored(str(examples), str(tmp_path)) is False
+
+    def test_returns_true_when_not_in_git_repo(self, tmp_path):
+        # tmp_path has no .git/ — git returns exit code 128
+        examples = tmp_path / "examples"
+        examples.mkdir()
+        assert is_path_git_ignored(str(examples), str(tmp_path)) is True
+
+    def test_returns_true_when_git_not_installed(self, tmp_path):
+        with patch(
+            "sphinxcontrib.copydirs.copydirs.subprocess.run",
+            side_effect=FileNotFoundError,
+        ):
+            assert is_path_git_ignored(str(tmp_path / "examples"), str(tmp_path)) is True
+
+
+class TestCopyAdditionalDirectoriesGitignoreWarning:
+    """Verifies that copy_additional_directories warns when the destination
+    is not covered by .gitignore."""
+
+    def _make_app(self, srcdir: str, outdir: str, dirs: list[str]) -> object:
+        app = MagicMock()
+        app.srcdir = srcdir
+        app.outdir = outdir
+        app.config.copydirs_additional_dirs = dirs
+        app.config.copydirs_file_rename = None
+        return app
+
+    def _setup_repo(self, tmp_path: object, gitignore_content: str) -> tuple:
+        """Return (srcdir, outdir, src) paths after creating a minimal repo."""
+        subprocess.run(["git", "init"], cwd=str(tmp_path), check=True, capture_output=True)
+        (tmp_path / ".gitignore").write_text(gitignore_content)
+        srcdir = tmp_path / "docs" / "source"
+        srcdir.mkdir(parents=True)
+        outdir = tmp_path / "docs" / "source" / "_build"
+        outdir.mkdir()
+        src = tmp_path / "examples"
+        src.mkdir()
+        (src / "readme.txt").write_text("hello")
+        return str(srcdir), str(outdir), str(src)
+
+    def test_warns_when_destination_not_gitignored(self, tmp_path, caplog):
+        srcdir, outdir, _ = self._setup_repo(tmp_path, "")  # empty .gitignore
+        app = self._make_app(srcdir, outdir, ["../../examples"])
+
+        with caplog.at_level(logging.WARNING, logger="sphinxcontrib.copydirs.copydirs"):
+            copy_additional_directories(app, None)
+
+        assert any("not git-ignored" in msg for msg in caplog.messages)
+
+    def test_no_warning_when_destination_is_gitignored(self, tmp_path, caplog):
+        srcdir, outdir, _ = self._setup_repo(tmp_path, "examples/\n")
+        app = self._make_app(srcdir, outdir, ["../../examples"])
+
+        with caplog.at_level(logging.WARNING, logger="sphinxcontrib.copydirs.copydirs"):
+            copy_additional_directories(app, None)
+
+        assert not any("not git-ignored" in msg for msg in caplog.messages)
+
+    def test_no_warning_when_not_in_git_repo(self, tmp_path, caplog):
+        # No git init — tmp_path is not a repo
+        srcdir = tmp_path / "docs" / "source"
+        srcdir.mkdir(parents=True)
+        outdir = tmp_path / "docs" / "source" / "_build"
+        outdir.mkdir()
+        src = tmp_path / "examples"
+        src.mkdir()
+        (src / "readme.txt").write_text("hello")
+        app = self._make_app(str(srcdir), str(outdir), ["../../examples"])
+
+        with caplog.at_level(logging.WARNING, logger="sphinxcontrib.copydirs.copydirs"):
+            copy_additional_directories(app, None)
+
+        assert not any("not git-ignored" in msg for msg in caplog.messages)
+
+    def test_warns_for_file_copy_when_not_gitignored(self, tmp_path, caplog):
+        subprocess.run(["git", "init"], cwd=str(tmp_path), check=True, capture_output=True)
+        (tmp_path / ".gitignore").write_text("")  # nothing ignored
+
+        srcdir = tmp_path / "docs" / "source"
+        srcdir.mkdir(parents=True)
+        outdir = tmp_path / "docs" / "source" / "_build"
+        outdir.mkdir()
+        src_file = tmp_path / "README.md"
+        src_file.write_text("# hello")
+
+        app = self._make_app(str(srcdir), str(outdir), ["../../README.md"])
+
+        with caplog.at_level(logging.WARNING, logger="sphinxcontrib.copydirs.copydirs"):
+            copy_additional_directories(app, None)
+
+        assert any("not git-ignored" in msg for msg in caplog.messages)
