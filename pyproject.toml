@@ -1,0 +1,61 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sphinxcontrib-copydirs"
+version = "0.3.6"
+description = "Copy directories into the Sphinx source directory."
+readme = "README.rst"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [{name = "Mike McKiernan", email = "mmckiernan@nvidia.com"}]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Sphinx :: Extension",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Documentation",
+    "Topic :: Documentation :: Sphinx",
+    "Topic :: Utilities",
+]
+dependencies = ["sphinx>=4.0"]
+
+[project.urls]
+Homepage = "https://github.com/mikemckiernan/sphinxcontrib-copydirs"
+Issues = "https://github.com/mikemckiernan/sphinxcontrib-copydirs/issues"
+
+[dependency-groups]
+test = ["pytest"]
+lint = ["ruff"]
+typing = ["mypy", "sphinx", "types-docutils"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["sphinxcontrib"]
+include = ["sphinxcontrib/copydirs/py.typed"]
+
+[tool.mypy]
+python_version = "3.10"
+show_column_numbers = true
+show_error_context = true
+ignore_missing_imports = true
+follow_imports = "skip"
+incremental = true
+check_untyped_defs = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "N", "B"]

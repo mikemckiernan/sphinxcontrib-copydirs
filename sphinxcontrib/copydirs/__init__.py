@@ -1,13 +1,13 @@
-import pbr.version
+from typing import Any
 
-from .copydirs import *
+from sphinx.application import Sphinx
 
-# __import__('pkg_resources').declare_namespace(__name__)
+from .copydirs import copy_additional_directories, resolve_directory_link
 
-__version__ = pbr.version.VersionInfo("sphinxcontrib-copydirs").version_string()
+__version__ = "0.3.6"
 
 
-def setup(app):
+def setup(app: Sphinx) -> dict[str, Any]:
     app.add_config_value("copydirs_additional_dirs", None, "html")
     app.add_config_value("copydirs_file_rename", None, "html")
     app.connect("config-inited", copy_additional_directories)
