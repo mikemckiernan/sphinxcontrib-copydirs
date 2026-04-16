@@ -1,10 +1,14 @@
+from importlib.metadata import PackageNotFoundError, version
 from typing import Any
 
 from sphinx.application import Sphinx
 
 from .copydirs import copy_additional_directories, resolve_directory_link
 
-__version__ = "0.3.6"
+try:
+    __version__ = version("sphinxcontrib-copydirs")
+except PackageNotFoundError:
+    __version__ = "unknown"
 
 
 def setup(app: Sphinx) -> dict[str, Any]:
