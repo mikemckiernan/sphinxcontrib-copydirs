@@ -16,7 +16,7 @@ def test_setup_registers_config_values():
     setup(app)
     app.add_config_value.assert_any_call("copydirs_additional_dirs", None, "html")
     app.add_config_value.assert_any_call("copydirs_file_rename", None, "html")
-    assert app.add_config_value.call_count == 2
+    app.add_config_value.assert_any_call("copydirs_gitignore_check", True, "html")
 
 
 def test_setup_connects_event_handlers():

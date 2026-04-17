@@ -54,6 +54,11 @@ def is_path_git_ignored(path: str, cwd: str) -> bool:
         return True
 
 
+def should_warn_not_gitignored(out_path: str, srcdir: str, check_enabled: bool) -> bool:
+    """Return True if the gitignore check is enabled and out_path is not git-ignored."""
+    return check_enabled and not is_path_git_ignored(out_path, srcdir)
+
+
 # Paths are relative to the docs/source directory.
 def copy_additional_directories(app: Sphinx, _: Any) -> None:
     """Copy the directories specified in
@@ -103,7 +108,7 @@ def copy_additional_directories(app: Sphinx, _: Any) -> None:
         # app.srcdir is inside the repo tree, so git walks up to find the root and
         # all relevant .gitignore files. If srcdir were outside the repo this check
         # would silently suppress the warning (git returns exit code 128).
-        if not is_path_git_ignored(out_path, app.srcdir):
+        if should_warn_not_gitignored(out_path, app.srcdir, app.config.copydirs_gitignore_check):
             logger.warning(
                 "Copied destination is not git-ignored and can be accidentally committed: %s",
                 out_path,
