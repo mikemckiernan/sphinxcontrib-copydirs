@@ -9,6 +9,7 @@ from sphinxcontrib.copydirs.copydirs import (
     find_index_target,
     is_path_git_ignored,
     resolve_out_path,
+    should_warn_not_gitignored,
 )
 
 
@@ -126,6 +127,31 @@ class TestIsPathGitIgnored:
             assert is_path_git_ignored(str(tmp_path / "examples"), str(tmp_path)) is True
 
 
+class TestShouldWarnNotGitignored:
+    def test_returns_false_when_check_disabled(self, tmp_path):
+        # Short-circuit: is_path_git_ignored is never called when check_enabled=False
+        assert should_warn_not_gitignored(str(tmp_path), str(tmp_path), False) is False
+
+    def test_returns_false_when_check_enabled_and_path_is_ignored(self, tmp_path):
+        with patch(
+            "sphinxcontrib.copydirs.copydirs.is_path_git_ignored", return_value=True
+        ):
+            assert should_warn_not_gitignored(str(tmp_path), str(tmp_path), True) is False
+
+    def test_returns_true_when_check_enabled_and_path_not_ignored(self, tmp_path):
+        with patch(
+            "sphinxcontrib.copydirs.copydirs.is_path_git_ignored", return_value=False
+        ):
+            assert should_warn_not_gitignored(str(tmp_path), str(tmp_path), True) is True
+
+    def test_returns_false_when_check_enabled_and_not_in_git_repo(self, tmp_path):
+        # is_path_git_ignored returns True when outside a repo (suppresses warning)
+        with patch(
+            "sphinxcontrib.copydirs.copydirs.is_path_git_ignored", return_value=True
+        ):
+            assert should_warn_not_gitignored(str(tmp_path), str(tmp_path), True) is False
+
+
 class TestCopyAdditionalDirectoriesGitignoreWarning:
     """Verifies that copy_additional_directories warns when the destination
     is not covered by .gitignore."""
@@ -136,6 +162,7 @@ class TestCopyAdditionalDirectoriesGitignoreWarning:
         app.outdir = outdir
         app.config.copydirs_additional_dirs = dirs
         app.config.copydirs_file_rename = None
+        app.config.copydirs_gitignore_check = True
         return app
 
     def _setup_repo(self, tmp_path: object, gitignore_content: str) -> tuple:
@@ -202,3 +229,13 @@ class TestCopyAdditionalDirectoriesGitignoreWarning:
             copy_additional_directories(app, None)
 
         assert any("not git-ignored" in msg for msg in caplog.messages)
+
+    def test_no_warning_when_gitignore_check_is_disabled(self, tmp_path, caplog):
+        srcdir, outdir, _ = self._setup_repo(tmp_path, "")  # empty .gitignore
+        app = self._make_app(srcdir, outdir, ["../../examples"])
+        app.config.copydirs_gitignore_check = False
+
+        with caplog.at_level(logging.WARNING, logger="sphinxcontrib.copydirs.copydirs"):
+            copy_additional_directories(app, None)
+
+        assert not any("not git-ignored" in msg for msg in caplog.messages)

@@ -14,6 +14,7 @@ except PackageNotFoundError:
 def setup(app: Sphinx) -> dict[str, Any]:
     app.add_config_value("copydirs_additional_dirs", None, "html")
     app.add_config_value("copydirs_file_rename", None, "html")
+    app.add_config_value("copydirs_gitignore_check", True, "html")
     app.connect("config-inited", copy_additional_directories)
     app.connect("missing-reference", resolve_directory_link)
     # app.connect("html-collect-pages", copy_directories_to_output)

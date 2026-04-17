@@ -54,6 +54,9 @@ in the `examples/README.md` file resolves to `examples/getting-started/index.md`
    │   └── README.md
    ├── README.md
 
+By default, the extension checks that you have git-ignored the destination
+path, such as `docs/source/examples`, and logs a warning if it is not ignored.
+To disable the check, set `copydirs_gitignore_check = False`.
 
 Releasing
 ---------
